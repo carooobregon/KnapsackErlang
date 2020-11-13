@@ -85,7 +85,19 @@ getInstance(ks50) -> {341045, [{4912, 1906}, {99732, 41516}, {56554, 23527}, {18
 % elements {Solution, Weight, Profit}, where Solution contains the actual solution found and
 % Weight and Profit indicate the total weight and profit packed within the knapsack, respectively.
 % ============================================
-solve({S, W}, P) -> "Not yet implemented".
+solve({S, W}, N) -> EvalArr = rndSolution(length(W)),
+		Evaluate = evaluate(EvalArr, { S, W } ),
+	if
+		N > 0 ->  CandArr = mutate(EvalArr, 0.5),
+		Candidate = evaluate(CandArr,{S,W}),
+		
+			if
+				tl (Candidate) >  tl (Evaluate) -> solve({CandArr,Candidate},N-1);
+			  true -> solve({EvalArr,Evaluate},N-1)
+			end;
+	true -> [W ++ Evaluate]
+	end.
+
 
 
 % Concurrent solver 
@@ -99,7 +111,16 @@ solve({S, W}, P) -> "Not yet implemented".
 % where Solution contains the actual solution found and Weight and Profit indicate the total
 % weight and profit packed within the knapsack, respectively.
 % ============================================
-solveConcurrent({_, _}, _, _) -> "Not yet implemented".
+solveConcurrent({S, W}, N, M) -> 
+Pid = spawn(fun main:solve/3)
+	recieve
+    	if
+		    M > 0 ->  Pid ! solve([S | W], N/M);
+					solveConcurrent({S,W}, N , M-1 );
+        true -> [S ++ W ]
+				end.
+	ok.
+
 
 % === Test cases (internal use) ===
 % Use this code to test if your codes are working as expected. 
@@ -140,7 +161,8 @@ start() ->
   MSol = mutate(Sol, 0.5),
   io:fwrite("~p~n", [MSol]),
   Evaluation = evaluate(MSol, Instance),
-  io:fwrite("~p~n", [Evaluation]).
+  io:fwrite("~p~n", [Evaluation]),
+	io:fwrite("~p~n", solve(getInstance(ks45), 1000000)).
 	%io:fwrite(evaluate([true, false, false, false, true], {12, [{5, 10}, {4, 7}, {8, 1}, {3, 5}, {7, 10}]})).
 
 	
