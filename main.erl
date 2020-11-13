@@ -23,15 +23,12 @@
 % Returns {12, 20}, which means that, the cumulative weight of the items in the knapsack is 12 units,
 % and its profit is 20 units.
 % ============================================
-%evaluateAux([],[],_,_) -> "esta raro";
-evaluateAux([],[],W,C) -> [W|C];
-evaluateAux([HdM | TlM],ELEM,W,C) -> [hd(ELEM)] .
-%if
-%	HdM -> evaluateAux(TlM,TlE,(W + hd (HdE)),(C + tl (HdE)) );
-%	true -> evaluateAux(TlM,TlE,W,C)
-%	end.
 
-evaluate(M, {n, ELEM}) -> hd(ELEM).
+evaluate(_, {_, []}) -> 0;
+evaluate([SolH | SolT], {Capacity, [{W, P} | T]}) -> if
+    SolH and (W =< Capacity) -> P + evaluate(SolT, {Capacity - W, T});
+    true -> evaluate(SolT, {Capacity, T})
+  end.
 
 % Generation of random solutions
 %
@@ -41,7 +38,10 @@ evaluate(M, {n, ELEM}) -> hd(ELEM).
 % 	project:rndSolution(5).
 % Returns a random solution for an instance with five items.
 % ============================================
-rndSolution(_) -> "Not yet implemented".
+rndSolution(N) -> if
+		N > 0 -> [(rand:uniform() > 0.5)] ++ rndSolution(N - 1);
+		true -> []
+	end.
 
 % Mutation of solutions
 %
@@ -52,7 +52,12 @@ rndSolution(_) -> "Not yet implemented".
 % Returns a new solution which is slightly different from the one given as argument (the elements
 % are changed with a probability of 0.1).
 % ============================================
-mutate(_, _) -> "Not yet implemented".
+mutate([], _) -> [];
+mutate([H | T], MRate) -> Temp = rand:uniform(), 
+    if
+      Temp =< MRate -> [(not H) | mutate(T, MRate)];
+      true -> [H | mutate(T, MRate)]
+    end.
 
 % Instances
 %
@@ -80,7 +85,8 @@ getInstance(ks50) -> {341045, [{4912, 1906}, {99732, 41516}, {56554, 23527}, {18
 % elements {Solution, Weight, Profit}, where Solution contains the actual solution found and
 % Weight and Profit indicate the total weight and profit packed within the knapsack, respectively.
 % ============================================
-solve({_, _}, _) -> "Not yet implemented".
+solve({S, W}, P) -> "Not yet implemented".
+
 
 % Concurrent solver 
 %
@@ -128,7 +134,13 @@ solve(Name, Solutions, Processors) ->
 
 
 start() ->
-	io:fwrite(evaluate([true], {1, [{5, 10}]})).
+	Instance = getInstance(test),
+  Sol = rndSolution(5),
+	io:fwrite("~p~n", [Sol]),
+  MSol = mutate(Sol, 0.5),
+  io:fwrite("~p~n", [MSol]),
+  Evaluation = evaluate(MSol, Instance),
+  io:fwrite("~p~n", [Evaluation]).
 	%io:fwrite(evaluate([true, false, false, false, true], {12, [{5, 10}, {4, 7}, {8, 1}, {3, 5}, {7, 10}]})).
 
 	
