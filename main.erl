@@ -85,20 +85,35 @@ getInstance(ks50) -> {341045, [{4912, 1906}, {99732, 41516}, {56554, 23527}, {18
 % elements {Solution, Weight, Profit}, where Solution contains the actual solution found and
 % Weight and Profit indicate the total weight and profit packed within the knapsack, respectively.
 % ============================================
-solve({S, W}, N) -> EvalArr = rndSolution(length(W)),
-		Evaluate = evaluate(EvalArr, { S, W } ),
-	if
-		N > 0 ->  CandArr = mutate(EvalArr, 0.5),
-		Candidate = evaluate(CandArr,{S,W}),
-		
-			if
-				tl (Candidate) >  tl (Evaluate) -> solve({CandArr,Candidate},N-1);
-			  true -> solve({EvalArr,Evaluate},N-1)
-			end;
-	true -> [W ++ Evaluate]
+solve({Capacity, Elem}, Iterations) -> 
+		EvalArr = rndSolution(length(Elem)),
+		Evaluate = evaluate(EvalArr, { Capacity, Elem } ),
+		if
+			Iterations > 0 ->  CandArr = mutate(EvalArr, 0.5),
+			Candidate = evaluate(CandArr,{Capacity,Elem}),
+			
+				if
+					tl (Candidate) >  tl (Evaluate) -> solve({CandArr,Candidate}, Iterations-1);
+					true -> solve({EvalArr,Evaluate}, Iterations-1)
+				end;
+		true -> [Elem ++ Evaluate]
+		end.
+
+listener({ _ , _} , _, 0) -> "Finished"
+listener({Capacity, Elem}, Iterations, CPU) ->
+	MaxProfit = 0, %%  como buscar el mejor profit de la tuple y receibir mensajes para comparar
+	recieve
+		SolArr -> Sol
+		if 
+			SolArr > MaxProfit -> MaxProfit = SolArr,
+			true -> 
+		listener( {Capacity,Elem} , Iteraciones, CPU -1)
 	end.
 
-
+divide( {_, _}, _, 0 )-> "Finished"; 
+divide( {Capacity, Elem}, Iteraciones,CPU)-> 
+	spawn(solve, {Capacity,Elem},Iteraciones),
+	divide( {Capacity, Elem}, Iteraciones,CPU - 1).
 
 % Concurrent solver 
 %
@@ -111,15 +126,23 @@ solve({S, W}, N) -> EvalArr = rndSolution(length(W)),
 % where Solution contains the actual solution found and Weight and Profit indicate the total
 % weight and profit packed within the knapsack, respectively.
 % ============================================
-solveConcurrent({S, W}, N, M) -> 
-Pid = spawn(fun main:solve/3)
-	recieve
-    	if
-		    M > 0 ->  Pid ! solve([S | W], N/M);
-					solveConcurrent({S,W}, N , M-1 );
-        true -> [S ++ W ]
-				end.
-	ok.
+solveConcurrent({Capacity, Elem}, Iterations, CPU) -> 
+	Pid = spawn(listener ,{Capacity,Elem},Iterations,CPU))   % hacer con spawn
+	register(pidListener, Pid) % pidListener ! para hacer referencia a el proceso
+	%regster (miproceso,self()) regresa a la terminal
+	Frac = trunc(Iteraciones / CPU),
+	divide({Capacity, Elem}, Frac,CPU);
+
+
+
+%Pid = spawn(fun main:solve/3)
+%	recieve
+ %   	if
+	%	    CPU > 0 ->  Pid ! solve([Capacity | Elem], Iterations/CPU);
+	%				solveConcurrent({Capacity,Elem}, Iterations , CPU-1 );
+   %     true -> [Capacity ++ Elem ]
+		%		end.
+%	ok.
 
 
 % === Test cases (internal use) ===
