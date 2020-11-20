@@ -85,39 +85,45 @@ getInstance(ks50) -> {341045, [{4912, 1906}, {99732, 41516}, {56554, 23527}, {18
 % elements {Solution, Weight, Profit}, where Solution contains the actual solution found and
 % Weight and Profit indicate the total weight and profit packed within the knapsack, respectively.
 % ============================================
-solve({Capacity, Elem}, Iterations) -> 
-		EvalArr = rndSolution(length(Elem)),
-		Evaluate = evaluate(EvalArr, { Capacity, Elem } ),
-		if
-			Iterations > 0 ->  CandArr = mutate(EvalArr, 0.5),
-			Candidate = evaluate(CandArr,{Capacity,Elem}),
-			
-				if
-					tl (Candidate) >  tl (Evaluate) -> solve({CandArr,Candidate}, Iterations-1);
-					true -> solve({EvalArr,Evaluate}, Iterations-1)
-				end;
-		true -> [Elem ++ Evaluate]
-		end.
+%wrapperSolve({Capacity,Elem},Iterations,{W,P})->
+%solve({Capacity
 
-listener({ _ , _} , _, 0) -> "Finished"
-listener({Capacity, Elem}, Iterations, CPU) ->
-	MaxProfit = 0, %%  como buscar el mejor profit de la tuple y receibir mensajes para comparar
-	recieve
-		SolArr -> Sol
-		if 
-			SolArr > MaxProfit -> MaxProfit = SolArr,
-			true -> 
-		listener( {Capacity,Elem} , Iteraciones, CPU -1)
+%solve({Capacity, Elem}, Iterations) -> 
+%		EvalArr = rndSolution(length(Elem)),
+%		Evaluate = evaluate(EvalArr, { Capacity, Elem } ),
+%		if
+%			Iterations > 0 ->  CandArr = mutate(EvalArr, 0.5),
+%			Candidate = evaluate(CandArr,{Capacity,Elem}),
+			
+%				if
+%					element (2,Candidate) >  element (2, Evaluate) -> solve({CandArr,Candidate}, Iterations-1);
+%					true -> solve({EvalArr,Evaluate}, Iterations-1)
+%				end;
+%		true ->  Evaluate
+%		end.
+
+listener(S,{ W , P}, 0) -> io:format("Mejor Profit", { S, W, P });
+listener(S, {W, P}, CPU) ->
+	receive
+		 { Sx, Wx, Px } -> if %% estamos haciendo esto bien?
+		 	Px > P -> P = Px , listener( Sx, {Wx,Px} , CPU -1);
+			true -> listener( S, {W,P} , CPU -1)
+			end
+			%%finish -> ,
 	end.
 
-divide( {_, _}, _, 0 )-> "Finished"; 
+divide( {_, _}, _, 0 )-> finish; 
 divide( {Capacity, Elem}, Iteraciones,CPU)-> 
-	spawn(solve, {Capacity,Elem},Iteraciones),
+	spawn(main, wrapperProcess, [{Capacity,Elem},Iteraciones]),
 	divide( {Capacity, Elem}, Iteraciones,CPU - 1).
+
+
+wrapperProcess({C,W}, I) ->
+	pidListener ! solve({C,W},I).
 
 % Concurrent solver 
 %
-% solveConcurrent/3 solves an instance by testing n different solutions on m different processes.
+% solveConcurrent/3 solves an instance by testing n different solution                                        wrapp                                           s on m different processes.
 % ============================================
 % Example:
 % 	project:solveConcurrent(knapsack:getInstance(ks45), 1000000, 4).
@@ -127,11 +133,12 @@ divide( {Capacity, Elem}, Iteraciones,CPU)->
 % weight and profit packed within the knapsack, respectively.
 % ============================================
 solveConcurrent({Capacity, Elem}, Iterations, CPU) -> 
-	Pid = spawn(listener ,{Capacity,Elem},Iterations,CPU))   % hacer con spawn
-	register(pidListener, Pid) % pidListener ! para hacer referencia a el proceso
+	S = rndSolution(length(Elem)),
+	Pid = spawn(main,listener ,[S, evaluate(S, {Capacity,Elem}), CPU]),   % hacer con spawn
+	register(pidListener, Pid), % pidListener ! para hacer referencia a el proceso
 	%regster (miproceso,self()) regresa a la terminal
-	Frac = trunc(Iteraciones / CPU),
-	divide({Capacity, Elem}, Frac,CPU);
+	Frac = trunc(Iterations / CPU),
+	divide({Capacity, Elem}, Frac,CPU).
 
 
 
@@ -166,26 +173,39 @@ test() ->
 % and (2) the concurrent solver with also 100000 solutions and four processors. Please be aware that
 % this test may take some time to finish.
 
-solve(Name, Solutions, Processors) ->	
+ solve(Name, Solutions, Processors) ->	
 	Instance = getInstance(Name),	
 	{T1, {_, _, P1}} = timer:tc(projectSolution, solve, [Instance, Solutions]),		
 	io:format("Instance: ~p.~n", [Name]),
 	io:format("Sequential approach): ~p seconds (profit = ~p).~n", [T1 / 1000000, P1]),	
-	{T2, {_, _, P2}} = timer:tc(projectSolution, solveConcurrent, [Instance, Solutions, Processors]),		
-	io:format("Concurrent approach): ~p seconds (profit = ~p).~n", [T2 / 1000000, P2]),
+%	{T2, {_, _, P2}} = timer:tc(projectSolution, solveConcurrent, [Instance, Solutions, Processors]),	
+%	io:format("Concurrent approach): ~p seconds (profit = ~p).~n", [T2 / 1000000, P2]),
 	ok.
 
+solveAux(_, 0, S, {W, P}) -> {S, W, P};
+solveAux({C, E}, N, S, {W, P}) -> 
+  Sx = mutate(S, 0.01),
+	{Wx, Px} = evaluate(Sx, {C, E}),
+  if
+  Px > P -> solveAux({C, E}, N - 1, Sx, {Wx, Px});
+  true -> solveAux({C, E}, N - 1, S, {W, P})
+  end.
+
+solve({C, E}, N) -> 
+	S = rndSolution(length(E)),
+	{W, P} = evaluate(S, {C, E}),
+	solveAux({C, E}, N, S, {W, P}).
 
 
 start() ->
 	Instance = getInstance(test),
-  Sol = rndSolution(5),
-	io:fwrite("~p~n", [Sol]),
-  MSol = mutate(Sol, 0.5),
-  io:fwrite("~p~n", [MSol]),
-  Evaluation = evaluate(MSol, Instance),
-  io:fwrite("~p~n", [Evaluation]),
-	io:fwrite("~p~n", solve(getInstance(ks45), 1000000)).
+%  Sol = rndSolution(5),
+%	io:fwrite("~p~n", [Sol]),
+%  MSol = mutate(Sol, 0.5),
+%  io:fwrite("~p~n", [MSol]),
+%  Evaluation = evaluate(MSol, Instance),
+%  io:fwrite("~p~n", [Evaluation]),
+	io:fwrite("~p~n", solve(getInstance(ks45), 1000)).
 	%io:fwrite(evaluate([true, false, false, false, true], {12, [{5, 10}, {4, 7}, {8, 1}, {3, 5}, {7, 10}]})).
 
 	
